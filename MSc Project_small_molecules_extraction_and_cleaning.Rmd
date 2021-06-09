@@ -1,0 +1,140 @@
+---
+title: "MSc Project_small_molecules_extraction_and_cleaning"
+author: "Amalawa O Ogbomo"
+date: "02/03/2021"
+output: pdf_document
+---
+
+title: "Msc Project"
+author: "Amalawa O Ogbomo"
+date: "02/03/2021"
+output: pdf_document
+---
+
+```{r}
+library(readr)
+library(data.table)
+version
+drug_data<-read.csv("C:/Users/aoogb/Desktop/smallmollecules_sars.csv", stringsAsFactors = TRUE)
+drug_data<-as.data.frame(drug_data)
+drug_data
+str(drug_data)
+
+#drop the columns that are not important
+library(tibble)
+library(Hmisc)
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+smallmol<-subset(drug_data, select=-c(cid,cmpdsynonym,inchikey,meshheadings,annothits,aids,annotation,inchi,iupacname,cidcdate,sidsrcname,depcatg))
+smallmol
+str(smallmol)
+colnames(smallmol)
+#Reorder the columns
+my_smallmol <- smallmol[, c(1,11,3,2, 4,12,5,7,8,9,10,6)]
+my_smallmol
+```
+```{r}
+# To show missing values in xLoP
+is.special<- function(n){ 
+  if (is.numeric(n)) !is.finite(n) else is.na(n)}
+is.special
+sapply(my_smallmol, is.special)
+summary(my_smallmol)
+str(my_smallmol)
+# to show presence of missing values 
+
+for (i in 1:length(my_smallmol)){
+  my_smallmol.na<-is.na( my_smallmol[i])
+}
+my_smallmol.na
+
+#To count missing values 
+na_count<-is.na(my_smallmol)
+sum(na_count)
+#161 counts of missing values for my_smallmol dataframe 
+
+# we check for missing values through the dataframe by looping through the whole dataframe 
+
+
+for(i in colnames(my_smallmol)){
+    print(sum(is.na(my_smallmol[[i]])))
+}
+
+mean_missingvalues<-data.frame(c(my_smallmol[6],my_smallmol[12]))
+mean_missingvalues
+
+for(i in colnames(my_smallmol)){
+    print(mean(is.na(my_smallmol[[i]])))
+}
+#column my_smallmol[6] is 0.001335113 and my_smallmol[12] is 0.08744
+my_smallmol[6]
+my_smallmol[12]
+#132 missing values of xlogp. There is need to generate a complete molecular descriptor
+my_smallmol$xlogp
+```
+
+
+```{r}
+#my_smallmol$isosmiles is retrieved as smile.csv 
+my_smallmol # small molecule data from pubchem
+my_smallmol$isosmiles<-as.character(my_smallmol$isosmiles)
+my_smallmol$isosmiles
+
+#my_smallmol$isosmiles<-data.frame(my_smallmol$isosmiles)
+#exportisosmile<-export(my_smallmol$isosmiles, "smile.csv")
+#exportisosmile
+
+
+# ACE2_target$canonical_smiles,Sars_target$canonical_smiles retrieved from chembl as  ACE2_targetsmiles.csv and Sars_targetsmiles.csv
+ACE2_target<-read.csv("C:/Users/aoogb/Desktop/ACE2sars_mol.csv", stringsAsFactors = TRUE)
+ACE2_target
+ACE2_target$canonical_smiles<-as.character(ACE2_target$canonical_smiles)
+
+
+# ACE2_target$canonical_smiles<-data.frame(ACE2_target$canonical_smiles)
+# ACE2_target$canonical_smiles<-export(ACE2_target$canonical_smiles, "ACE2_targetsmiles.csv")
+# ACE2_target$canonical_smiles
+
+Sars_target<-read.csv("C:/Users/aoogb/Desktop/Sars_final.csv", stringsAsFactors = TRUE)
+Sars_target
+Sars_target$canonical_smiles<-as.character(Sars_target$canonical_smiles)
+Sars_target$canonical_smiles
+
+# Sars_target$canonical_smiles<-data.frame(Sars_target$canonical_smiles)
+# Sars_target$canonical_smiles<-export(Sars_target$canonical_smiles, "Sars_targetsmiles.csv")
+# Sars_target$canonical_smiles
+
+
+
+
+#final combined version of ACE2_target$canonical_smiles,Sars_target$canonical_smiles and Sars_target$canonical_smiles before molecular descriptors df_smallmol is obtained in google colab
+smile_s<-read.csv("C:/Users/aoogb/Desktop/smil.csv", stringsAsFactors = TRUE)
+smile_s
+```
+
+```{r}
+# from the google colab this df_smallmol is obtained 
+small_molecules<-read.csv("C:/Users/aoogb/Desktop/df_smallmol.csv", stringsAsFactors = TRUE)
+small_molecules
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

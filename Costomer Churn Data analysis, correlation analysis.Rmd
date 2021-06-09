@@ -1,0 +1,291 @@
+---
+title: "Costomer Churn Data analysis, correlation analysis"
+author: "Amalawa ogbomo"
+date: "24/03/2021"
+output: html_document
+
+---
+
+```{r}
+library(readr)
+library(data.table)
+
+churn<-read.csv("C:/Users/aoogb/Desktop/DAT7005Dataset.csv", stringsAsFactors = TRUE)
+churn<-as.data.frame(churn)
+churn
+str(churn)
+#10127 observations
+#23 variables # CLIENTNUM
+library(tibble)
+library(Hmisc)
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+# drop columns that dont contribute like CLIENTNUM 
+#"CLIENTNUM"
+churn <- subset(churn[, c(2:23)])
+churn
+#colnames(churn)
+#  [1] "Attrition_Flag"                                                                                                                    
+#  [2] "Customer_Age"                                                                                                                      
+#  [3] "Gender"                                                                                                                            
+#  [4] "Dependent_count"                                                                                                                   
+#  [5] "Education_Level"                                                                                                                   
+#  [6] "Marital_Status"                                                                                                                    
+#  [7] "Income_Category"                                                                                                                   
+#  [8] "Card_Category"                                                                                                                     
+#  [9] "Months_on_book"                                                                                                                    
+# [10] "Total_Relationship_Count"                                                                                                          
+# [11] "Months_Inactive_12_mon"                                                                                                            
+# [12] "Contacts_Count_12_mon"                                                                                                             
+# [13] "Credit_Limit"                                                                                                                      
+# [14] "Total_Revolving_Bal"                                                                                                               
+# [15] "Avg_Open_To_Buy"                                                                                                                   
+# [16] "Total_Amt_Chng_Q4_Q1"                                                                                                              
+# [17] "Total_Trans_Amt"                                                                                                                   
+# [18] "Total_Trans_Ct"                                                                                                                    
+# [19] "Total_Ct_Chng_Q4_Q1"                                                                                                               
+# [20] "Avg_Utilization_Ratio"                                                                                                             
+# [21] "Naive_Bayes_Classifier_Attrition_Flag_Card_Category_Contacts_Count_12_mon_Dependent_count_Education_Level_Months_Inactive_12_mon_1"
+# [22] "Naive_Bayes_Classifier_Attrition_Flag_Card_Category_Contacts_Count_12_mon_Dependent_count_Education_Level_Months_Inactive_12_mon_2"
+
+churn[churn=="Unknown"] <-""
+churn
+for(i in colnames(churn)){
+    print(sum(is.na(churn[[i]])))
+}
+#count of missing values in different columns 
+str(churn$Education_Level)
+#[5] "Education_Level" = 1519  
+str(churn$Marital_Status)
+#[6] "Marital_Status"=  749 
+ str(churn$Income_Category)
+#[7] "Income_Category"= 1112 
+
+# Handling missing values 
+for(i in colnames(churn)){
+    print(mean(is.na(churn[[i]])))
+}
+# because all the mean is greater than 0.05 we drop the rows with the missing values 
+# [5] "Education_Level"= 0.1499951                                                                                                                  
+# [6] "Marital_Status"= 0.0739607                                                                                                                 
+# [7] "Income_Category"= 0.1098055 
+
+count_missingvalue<-sum(is.na(churn))
+count_missingvalue
+#total nmissing value is 3380
+# to drop the missing value 
+churn<-na.omit(churn)
+churn
+str(churn)
+```
+
+
+```{r}
+# column 1 
+churn$Attrition_Flag
+churn<-churn%>%mutate(Attrition_Flag=case_when(
+    Attrition_Flag=="Existing Customer" ~ 1,
+    Attrition_Flag=="Attrited Customer" ~ 2,
+      ))
+str(churn$Attrition_Flag)
+churn$Attrition_Flag
+# represent Existing Customer as 1, and Attrited Customer as 2 
+
+churn$Gender
+churn<-churn%>%mutate(Gender=case_when(
+   Gender=="M" ~ 1,
+   Gender=="F" ~ 2,
+      ))
+str(churn$Gender)
+churn$Gender
+
+churn$Education_Level
+churn<-churn%>%mutate(Education_Level=case_when(
+  Education_Level=="Uneducated"~ 1,
+  Education_Level=="High School"~ 2,
+  Education_Level=="College" ~ 3,
+  Education_Level=="Post-Graduate"~4,
+  Education_Level=="Graduate"~5,
+  Education_Level=="Doctorate"~6,
+   ))
+str(churn$Education_Level)
+
+churn$Marital_Status
+churn<-churn%>%mutate(Marital_Status=case_when(
+ Marital_Status=="Single"~ 1,
+ Marital_Status=="Married"~2,
+ Marital_Status=="Divorced"~ 3,
+   ))
+churn$Marital_Status
+
+
+churn$Income_Category
+churn<-churn%>%mutate(Income_Category=case_when(
+  Income_Category=="Less than $40K"~ 1,
+  Income_Category=="$40K - $60K"~ 2,
+  Income_Category=="$60K - $80K" ~ 3,
+  Income_Category=="$80K - $120K"~4,
+  Income_Category=="$120K +"~5,
+   ))
+churn$Income_Category
+churn$Card_Category
+churn<-churn%>%mutate(Card_Category=case_when(
+  Card_Category=="Blue"~ 1,
+  Card_Category=="Gold"~ 2,
+  Card_Category=="Platinum" ~ 3,
+  Card_Category=="Silver"~4,
+   ))
+churn$Card_Category
+str(churn)
+churn
+```
+
+## Including Plots
+
+
+```{r}
+library(ISwR)
+library(GGally)
+library(cdata)
+library(wrapr)
+library(ggpubr)
+library(ggrepel)
+library(grDevices)
+library(ggbiplot)
+library(ggplot2)
+
+churn$Attrition_Flag<-as.factor(churn$Attrition_Flag)
+ggplot(churn, 
+       aes(x = Attrition_Flag, 
+           y = ..count.. / sum(..count..))) + 
+  geom_bar() +
+  geom_bar(fill = "#0073C2FF") +
+  labs(x = "Existing Customer 1 and Attrited Customer 2", 
+       y = "Percentage of Existing Customer or Attrited Customer", 
+       title  = "% Existing Customer or Attrited Customer of Attrition_Flag") +
+  scale_y_continuous(labels = scales::percent)
+
+plotdata<-churn%>%
+  dplyr::count(Attrition_Flag) %>%
+  mutate(pct = n / sum(n),
+         pctlabel = paste0(round(pct*100), "%"))
+plotdata
+
+ggplot(plotdata, 
+       aes(x = reorder(Attrition_Flag, -pct),
+           y = pct)) + 
+  geom_bar(stat = "identity", 
+           fill = "indianred3", 
+           color = "black") +
+  geom_text(aes(label = pctlabel), 
+            vjust = -0.25) +
+  scale_y_continuous(labels = percent) +
+  labs(x = "Existing Customer 1 and Attrited Customer 2 ", 
+        y = "Percentage of Existing Customer or Attrited Customer",
+        title  = "% Existing Customer or Attrited Custome of Attrition_Flag")
+```
+
+
+
+```{r}
+#correlation 
+
+#convert data to numeric 
+
+ summary(churn)
+ churn[]<- lapply(churn, function(x) {
+  if(!is.numeric(x)|is.integer(x)) as.numeric(as.character(x)) else x
+ })
+sapply(churn, class)
+ 
+str(churn)
+
+```
+
+```{r}
+#outliers detection with boxplot 
+churn
+
+#outputing outliers 
+for(i in colnames(churn)){
+    print(boxplot(churn[[i]]))
+    print(boxplot.stats(churn[[i]])$out)
+}
+
+#Test for outliers 
+#install.packages("EnvStats")
+library(EnvStats)
+
+for(i in colnames(churn)){
+    print(rosnerTest(churn[[i]]))
+    
+}
+
+# we apply a function to balance the quantile with a lower boundry of 0.05 and upper boundry of 0.95
+fun <- function(x){
+  for(i in colnames(churn)){
+    qn = quantile((churn[[i]]), c(0.05, 0.95), na.rm = TRUE)
+churn = within(churn, { i = ifelse(i< qn[1], qn[1],i)
+                   i= ifelse(i > qn[2], qn[2], i)})
+  }
+}
+
+sapply(churn, fun)
+
+
+
+
+for(i in colnames(churn)){
+  print(ggdensity((churn[[i]]), 
+          main = "Density plot of tooth length"))
+}
+          
+```
+
+```{r}
+#correlation plot
+library(corrplot)
+library(ggcorrplot)
+
+table(churn$Attrition_Flag)
+pairs(churn)
+correlations=cor(churn,churn$Attrition_Flag,method = "spearman")
+correlations 
+plot(correlations)
+corrplot(correlations, Attrition_Flagber.cex =1, method = "circle", type = "full", tl.cex=.8,tl.col = "black")
+churnmatrix<-as.matrix(churn)
+Corelationmatrix<-rcorr(churnmatrix)
+Corelationmatrix
+# Extract the correlation coefficients
+Corelationmatrix$r
+correlationcoef<-as.data.frame(Corelationmatrix$r)
+correlationcoef$Attrition_Flag<-as.matrix(correlationcoef$Attrition_Flag)
+correlationcoef$Attrition_Flag
+# Extract p-values
+Corelationmatrix$P 
+Pvalue<-as.data.frame(Corelationmatrix$P )
+Pvalue$Attrition_Flag<-as.matrix(Pvalue$Attrition_Flag)
+Pvalue$Attrition_Flag
+
+correlation_correlationcoef_Pvalue<-cbind(correlations,correlationcoef$Attrition_Flag,Pvalue$Attrition_Flag) 
+correlation_correlationcoef_Pvalue
+#correlation_correlationcoef_Pvalue<-data.frame(correlation_correlationcoef_Pvalue)
+#correlation_correlationcoef_Pvalue
+## visualize correlations and density plot and eclipes 
+#install.packages("psych")
+library(psych)
+pairs.panels(churn[,-1], 
+             method = "spearman", # correlation method
+             hist.col = "#00AFBB",
+             density = TRUE,  # show density plots
+             ellipses = TRUE # show correlation ellipses
+             )
+str(churn)
+```
+
+
+
+
+
+

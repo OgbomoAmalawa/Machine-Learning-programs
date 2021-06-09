@@ -1,0 +1,2100 @@
+---
+title: 'Msc Data science sars-cov2 small molecule drug design '
+author: "Amalawa Ogbomo B00804422"
+date: "03/04/2021"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+```{r setup, include=FALSE}
+library(readr)
+library(data.table)
+library(tibble)
+library(Hmisc)
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+smallmol_data<-read.csv("C:/Users/aoogb/Desktop/df_smallmol.csv", stringsAsFactors = TRUE)
+smallmol_data<-as.data.frame(smallmol_data)
+smallmol_data
+describe(smallmol_data)
+str(smallmol_data)# 19 columns 1950 rows 
+#droping features with same variance or no standard deviation
+smallmol_data<-subset(smallmol_data, select=-c(NumRadicalElectrons))
+smallmol_data
+
+describe(smallmol_data)
+colnames(smallmol_data) # 18 columns 1950 rows 
+#Check statistisics
+for(i in colnames(smallmol_data)){
+  print(summary((smallmol_data[[i]]), 
+       ))
+}
+smallmol_data
+```
+
+```{r}
+#checking for missing values # checkif Na values are present 
+is.special <- function(n){ 
+  if (is.numeric(n)) !is.finite(n) else is.na(n)}
+is.special
+sapply(smallmol_data, is.special)
+ # count number of Na values present 
+
+for(i in colnames(smallmol_data)){
+    print(sum(is.na(smallmol_data[[i]])))
+}
+sum_missingvalues<-sum(is.na(smallmol_data))
+sum_missingvalues
+
+ 
+#outlier detection 
+# we write a for loop to handle outliers 
+#To print outliers values 
+for(i in colnames(smallmol_data)){
+  print(boxplot.stats((smallmol_data[[i]]))$out)
+}
+
+#a. detecting outliers with a boxplot  
+  for(i in colnames(smallmol_data)){
+    print(boxplot(smallmol_data[[i]]))
+  }
+#install.packages("EnvStats")
+
+library(EnvStats)
+
+for(i in colnames(smallmol_data)){
+    print(rosnerTest(smallmol_data[[i]]))
+    
+}
+
+   #Outliers are detected however we aobserved that these outliers can be handled ny data transformation , which we implement for a better distribution for the machine learning purpose. 
+```
+
+
+```{r}
+# Seperate the categorical variables "cat_smallmol" from the contineous variables "num_smallmol" in a dataframe for analysis 
+#categorical variables 
+# smallmol_data$NumHDonors
+# smallmol_data$NumHAcceptors
+# smallmol_data$RingCount
+# smallmol_data$NumAromaticRings
+# smallmol_data$NumHeteroatoms
+# smallmol_data$NumRotatableBonds
+# smallmol_data$NumSaturatedCarbocycles
+# smallmol_data$NumSaturatedRings
+# smallmol_data$NumAliphaticHeterocycles
+# smallmol_data$NumAliphaticRings
+# smallmol_data$NumSaturatedHeterocycles
+
+     cat_smallmol<-subset(smallmol_data, select=c(NumHDonors,RingCount,NumAromaticRings,NumSaturatedCarbocycles,NumSaturatedRings,NumAliphaticHeterocycles,NumAliphaticRings,NumSaturatedHeterocycles,xLogP))
+     cat_smallmol
+     str(cat_smallmol)
+     describe(cat_smallmol)
+     num_smallmol<-subset(smallmol_data, select=-c(NumHDonors,RingCount,NumAromaticRings,NumSaturatedCarbocycles,NumSaturatedRings,NumAliphaticHeterocycles,NumAliphaticRings,NumSaturatedHeterocycles))
+     num_smallmol
+     str(num_smallmol)
+```
+
+```{r}
+library(ggplot2)
+library(ggpubr)
+#categorical variable analysis 
+for (i in 1:ncol(cat_smallmol)) {
+  p <- ggplot(cat_smallmol, aes(cat_smallmol[,i],colour = "red", fill = "#56B4E9")) +
+    geom_histogram(alpha=0.5, binwidth=0.5) +
+    scale_x_continuous(breaks=seq(floor(min(cat_smallmol[,i])),ceiling(max(cat_smallmol[,i])))) +
+    ggtitle(names(cat_smallmol)[i])
+  
+  # get max counts
+  max_count <- max(ggplot_build(p)$data[[1]]$count)
+  p <- p + scale_y_continuous(breaks=seq(0,max_count,1)) 
+
+  print(p)
+}
+
+```
+
+
+```{r}
+#contineous variable anlysis 
+
+
+#Data visualization  
+
+#density plots visualizing mean median and mode., 
+ for(i in colnames(num_smallmol)){
+  a<-ggdensity((num_smallmol[[i]]), 
+          main = "Density plot")+
+          geom_density(colour = "green", fill = mean(smallmol_data[[i]]))+
+        ggtitle(i)
+   
+shaded_area<- 
+  ggplot_build(a)$data[[1]] %>% 
+  filter(x <mean(num_smallmol[[i]]))
+
+density_plot_num_smallmol_shaded<-a + 
+  geom_area(data = shaded_area, aes(x = x, y = y), fill="pink", alpha = 0.5)
+
+
+
+median_num_smallmol <- 
+  ggplot_build(a)$data[[1]] %>% 
+  filter(x <= median(num_smallmol[[i]]))
+
+
+print(density_plot_num_smallmol_shaded + 
+  geom_area(data = median_num_smallmol, aes(x = x, y = y), fill="blue", alpha = 0.5))
+
+   
+}
+
+#Histograms
+for (i in 1:ncol(num_smallmol)) {
+  p <- ggplot(num_smallmol, aes(num_smallmol[,i],colour = "red", fill = "#56B4E9")) +
+    geom_histogram(alpha=0.5, binwidth=0.5) +
+    scale_x_continuous(breaks=seq(floor(min(num_smallmol[,i])),ceiling(max(num_smallmol[,i])))) +
+    ggtitle(names(num_smallmol)[i])
+  
+  # get max counts
+  max_count <- max(ggplot_build(p)$data[[1]]$count)
+  p <- p + scale_y_continuous(breaks=seq(0,max_count,1)) 
+
+  print(p)
+}
+#scattered plots
+
+
+scatterfun = function(x, y){
+     ggplot(smallmol_data, aes(x = .data[[x]], y = .data[[y]])) +
+           geom_point(aes(shape = factor(y)))+
+           geom_point(aes(color = factor(x)))+
+          geom_smooth(method = "loess", se = FALSE, color ="grey74") +
+          theme_bw()
+}
+colnames(smallmol_data)
+scatterfun(y="MolWt",x="xLogP")
+scatterfun(y="NumHDonors",x="xLogP")
+scatterfun(y="NumHAcceptors",x="xLogP")
+scatterfun(y="HeavyAtomCount",x="xLogP")
+scatterfun(y="RingCount",x="xLogP")
+scatterfun(y="HeavyAtomMolWt",x="xLogP")
+scatterfun(y="NumAromaticRings",x="xLogP")
+scatterfun(y="NumHeteroatoms",x="xLogP")
+scatterfun(y="NumRotatableBonds",x="xLogP")
+scatterfun(y="NumSaturatedCarbocycles",x="xLogP")
+scatterfun(y="NumSaturatedRings",x="xLogP")
+scatterfun(y="Polar_Surface_A",x="xLogP")
+scatterfun(y="NumValenceElectrons",x="xLogP")
+scatterfun(y="NumAliphaticHeterocycles",x="xLogP")
+scatterfun(y="NumAliphaticRings",x="xLogP")
+scatterfun(y="NumSaturatedHeterocycles",x="xLogP")
+
+```
+
+
+
+```{r}
+#correlation analysis
+library(corrplot)
+library(ggcorrplot)
+str(smallmol_data)
+  smallmol_data[]<- lapply(smallmol_data, function(x) {
+  if(!is.numeric(x)|is.integer(x)) as.numeric(as.character(x)) else x
+ })
+sapply(smallmol_data, class)
+
+table(smallmol_data$xLogP)
+correlations=cor(smallmol_data,smallmol_data$xLogP,method = "spearman")
+correlations 
+plot(correlations)
+ 
+corrplot(correlations, number.cex =1, method = "circle", type = "full", tl.cex=.8,tl.col = "black")
+smallmol_datamatrix<-as.matrix(smallmol_data)
+Corelationmatrix<-rcorr(smallmol_datamatrix)
+Corelationmatrix
+# Extract the correlation coefficients
+Corelationmatrix$r
+correlationcoef<-as.data.frame(Corelationmatrix$r)
+correlationcoef$xLogP<-as.matrix(correlationcoef$xLogP)
+correlationcoef$xLogP
+# Extract p-values
+Corelationmatrix$P 
+Pvalue<-as.data.frame(Corelationmatrix$P )
+Pvalue$xLogP<-as.matrix(Pvalue$xLogP)
+Pvalue$xLogP
+
+correlation_correlationcoef_Pvalue<-cbind(correlations,correlationcoef$xLogP,Pvalue$xLogP)  
+correlation_correlationcoef_Pvalue
+
+```
+
+
+```{r}
+#Heat map correlation 
+library(plotly)
+library(heatmaply)
+library(ggcorrplot)
+heatmaply_cor(
+  cor(smallmol_data),
+  xlab = "smallmol_data features", 
+  ylab = "smallmol_data features",
+  k_col = 2, 
+  k_row = 2
+)
+
+heatmaply_cor(
+  correlationcoef,
+  node_type = "scatter",
+  point_size_mat = -log10(Pvalue), 
+  point_size_name = "-log10(Corelationmatrix$P)",
+  label_names = c("x", "y", "Correlation")
+)
+#Feature selection
+# ensure results are repeatable
+set.seed(7)
+# load the library
+```
+
+
+
+```{r}
+ #data transformation where nessesary 
+ for(i in colnames(smallmol_data)){
+     print(shapiro.test(smallmol_data[[i]]))
+  
+ }
+  smallmol_data<-log(smallmol_data[[i]])
+ 
+```
+
+
+```{r}
+#Regression model#
+library(caret)
+## 10-fold CV
+# possible values: boot", "boot632", "cv", "repeatedcv", "LOOCV", "LGOCV"
+fitControl <- trainControl(method = "repeatedcv",   
+                           number = 10,     # number of folds
+                           repeats = 10)    # repeated ten times
+
+modelxlop<- train(xLogP ~ .,
+               data = smallmol_data,
+               method = "lasso",  #  using the lasso method
+               trControl = fitControl)  
+
+modelxlop 
+plot(modelxlop)
+## The lasso 
+## 
+## 32 samples
+## 10 predictors
+## 
+# No pre-processing
+# Resampling: Cross-Validated (10 fold, repeated 10 times) 
+# Summary of sample sizes: 1756, 1754, 1754, 1756, 1756, 1755, ... 
+# Resampling results across tuning parameters:
+# 
+#   fraction  RMSE      Rsquared   MAE     
+#   0.1       1.755377  0.7681589  1.081723
+#   0.5       1.717105  0.7775252  1.065644
+#   0.9       1.714911  0.7781581  1.063827
+# 
+# RMSE was used to select the optimal model using the smallest value.
+# The final value used for the model was fraction = 0.9.
+
+# #Finding the model hyper-parameters
+# We can find the best hyperparameters for our model by using the tuneGrid parameter. This parameter receives A data frame with possible tuning values. The dataframe columns are named the same as the tuning parameters.
+# To generate the possible values, I am going to use the expand.grid function from the base library. To explain the use of tuneGrid I’m gonna use the ridge regression method.
+# Short explanation
+# The ridge method shrinks the coefficients of the predictor variables towards 0, as lambda grows. That shrinking effect decreases the model flexibility, decreasing its variance as well, but increasing bias. The idea of Ridge regression is to find a value for lambda that is a satisfying trade-off between bias and variance.
+# With the code below we can find the best lambda parameter for ridge regression between 10^-2 up to 10^10.
+# # Here I generate a dataframe with a column named lambda with 100 values that goes from 10^10 to 10^-2
+# lambdaGrid <- expand.grid(lambda = 10^seq(10, -2, length=100))
+#  modelxlop<-train(xLogP ~ .,
+#                data = smallmol_data,
+#                method = "ridge",
+#                trControl = fitControl,
+#                preProcess = c('scale', 'center'),
+#                tuneGrid = lambdaGrid,   # Test all the lambda values in the lambdaGrid dataframe
+#                na.action = na.omit)   # Ignore NA values
+# 
+# modelxlop
+# plot(modelxlop)
+
+## Ridge Regression 
+## 
+## 32 samples
+## 10 predictors
+## 
+## Pre-processing: scaled (10), centered (10) 
+## Resampling: Cross-Validated (10 fold, repeated 10 times) 
+## Summary of sample sizes: 28, 29, 28, 29, 30, 28, ... 
+## Resampling results across tuning parameters:
+## 
+##   lambda        RMSE       Rsquared   MAE      
+##   1.000000e-02   3.133764  0.8542752   2.700711
+##   1.321941e-02   3.097225  0.8559508   2.670390
+##   1.747528e-02   3.057315  0.8583961   2.637061
+##   2.310130e-02   3.015005  0.8621809   2.600386
+##   3.053856e-02   2.971543  0.8672769   2.562851
+ # too much output so i cut it out
+##   1.000000e+10  25.370412  0.8901093  23.047829
+## 
+## RMSE was used to select the optimal model using the smallest value.
+## The final value used for the model was lambda = 0.1629751.
+# When you call model.cv, you can see the metrics RMSE, Rsquared and MAE for each lambda value that you tested and the model also outputs the best choice for lambda among the values tested. In this case, it was lambda = 0.1629751.
+# There’s another way of searching for hyper-parameter without passing a list of values to the train() function. We can use search = “random” inside trainControl() and the function will automatically test a range of values.
+fitControl <- trainControl(## 10-fold CV
+                           method = "repeatedcv",
+                           number = 10,
+                           repeats = 10,
+                           search = "random")  # hyper-parameters random search 
+
+model.l<- train(xLogP~ .,
+               data = smallmol_data,
+               method = "ridge",
+               trControl = fitControl,
+               preProcess = c('scale', 'center'),
+               na.action = na.omit)
+
+model.l
+plot(model.l)
+## Ridge Regression 
+## 
+## 32 samples
+## 10 predictors
+## 
+## Pre-processing: scaled (10), centered (10) 
+## Resampling: Cross-Validated (10 fold, repeated 10 times) 
+## Summary of sample sizes: 28, 29, 29, 29, 28, 28, ... 
+## Resampling results across tuning parameters:
+## 
+##   lambda        RMSE       Rsquared   MAE      
+##   7.830203e-05   3.428075  0.8533706   2.950310
+##   9.214823e-05   3.427668  0.8533953   2.949997
+##   8.645309e+00  15.314730  0.9024834  13.994384
+## 
+## RMSE was used to select the optimal model using the smallest value.
+## The final value used for the model was lambda = 9.214823e-05.
+```
+
+```{r}
+#changing xLogp to categorical variable 
+smallmol_data$xLogP
+is.na(smallmol_data$xLogP) <- smallmol_data$xLogP<=5 
+smallmol_data$xLogP
+mean(is.na(smallmol_data))# mean is 0.004640371 , less than 0.05 so we omit it because it will have little or no effect on shewing our data as missing value is insignificant 
+smallmol_data[is.na(smallmol_data)] = 1
+smallmol_data$xLogP
+is.na(smallmol_data$xLogP)<-smallmol_data$xLogP!=1
+smallmol_data[is.na(smallmol_data)] = 0
+smallmol_data$xLogP
+
+table(smallmol_data$xLogP)
+smallmol_data$xLogP<- ordered(smallmol_data$xLogP, levels = c("1", "0"))
+table(smallmol_data$xLogP)
+
+cat_smallmol$xLogP
+is.na(cat_smallmol$xLogP) <- cat_smallmol$xLogP<=5 
+cat_smallmol$xLogP
+cat_smallmol[is.na(cat_smallmol)] = 1
+cat_smallmol$xLogP
+is.na(cat_smallmol$xLogP)<-cat_smallmol$xLogP!=1
+cat_smallmol[is.na(cat_smallmol)] = 0
+cat_smallmol$xLogP
+
+table(cat_smallmol$xLogP)
+cat_smallmol$xLogP<- ordered(cat_smallmol$xLogP, levels = c("1", "0"))
+table(cat_smallmol$xLogP)
+```
+
+#target class analysis and categorical class analysis 
+
+```{r}
+#write a forloop to analyse target class and categorical class
+smallmol_data$xLogP<-as.factor(smallmol_data$xLogP)
+ggplot(smallmol_data, 
+       aes(x = xLogP, 
+           y = ..count.. / sum(..count..))) + 
+  geom_bar() +
+  geom_bar(fill = "#0073C2FF") +
+  labs(x = "xLogP", 
+       y = "Percentage", 
+       title  = "Partition coeficient") +
+  scale_y_continuous(labels = scales::percent)
+
+plotdata<-smallmol_data%>%
+  dplyr::count(xLogP) %>%
+  mutate(pct = n / sum(n),
+         pctlabel = paste0(round(pct*100), "%"))
+plotdata
+
+
+ggplot(plotdata, 
+       aes(x = reorder(xLogP, -pct),
+           y = pct)) + 
+  geom_bar(stat = "identity", 
+           fill = "indianred3", 
+           color = "black") +
+  geom_text(aes(label = pctlabel), 
+            vjust = -0.25) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "Partition Coeficient xLogP", 
+       y = "Percentage",
+        title  = "Partition Coeficient")
+```
+
+```{r}
+#set the cathegorical class to factors
+
+     
+cat_smallmol$NumHDonors<-as.factor(cat_smallmol$NumHDonors)
+cat_smallmol$RingCount<-as.factor(cat_smallmol$RingCount)
+cat_smallmol$NumAromaticRings<-as.factor(cat_smallmol$NumAromaticRings)
+cat_smallmol$NumSaturatedCarbocycles<-as.factor(cat_smallmol$NumSaturatedCarbocycles)
+cat_smallmol$NumSaturatedRings<-as.factor(cat_smallmol$NumSaturatedRings)
+cat_smallmol$NumAliphaticHeterocycles<-as.factor(cat_smallmol$NumAliphaticHeterocycles)
+cat_smallmol$NumAliphaticRings<-as.factor(cat_smallmol$NumAliphaticRings)
+cat_smallmol$NumSaturatedHeterocycles<-as.factor(cat_smallmol$NumSaturatedHeterocycles)
+cat_smallmol$xLogP<-as.factor(cat_smallmol$xLogP)
+
+str(cat_smallmol)
+cat_smallmol
+```
+
+#write another for loop analyse statisically target class and cathegorical classes
+```{r}
+#str(cat_smallmol)
+#NumHDonors analysis 
+ggboxplot(cat_smallmol, x = "xLogP", y = "NumHDonors", 
+          color = "xLogP", palette = c("#00AFBB", "#E7B800"),
+          order = c("0", "1"),
+          ylab = "Number of Hydrogen Donors", xlab = "Partition coeficient")
+ggplot(cat_smallmol, 
+       aes(x = NumHDonors, 
+           fill = xLogP)) + 
+  geom_bar(position = position_dodge(preserve = "single"))
+
+NumHDonorsdata<-cat_smallmol %>%
+   dplyr::count(NumHDonors) %>%
+  mutate(pct = n / sum(n),
+         pctlabel = paste0(round(pct*100), "%"))
+NumHDonorsdata
+
+ggplot(NumHDonorsdata, 
+       aes(x = reorder(NumHDonors, -pct),
+           y = pct)) + 
+  geom_bar(stat = "identity", 
+           fill = "indianred3", 
+           color = "black") +
+  geom_text(aes(label = pctlabel), 
+            vjust = -0.25) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "NumHDonors", 
+       y = "Percentage", 
+       title  = "Plot of number of Hydrogen donors (NumHDonors)")
+NumHDonorsdata= table(cat_smallmol$NumHDonors,cat_smallmol$xLogP) 
+print(NumHDonorsdata)
+```
+
+
+
+```{r}
+#RingCount
+ggboxplot(cat_smallmol, x = "xLogP", y = "RingCount", 
+          color = "xLogP", palette = c("#00AFBB", "#E7B800"),
+          order = c("0", "1"),
+          ylab = "Ring Count", xlab = "Partition coeficient")
+ggplot(cat_smallmol, 
+       aes(x = RingCount, 
+           fill = xLogP)) + 
+  geom_bar(position = position_dodge(preserve = "single"))
+
+RingCountdata<-cat_smallmol %>%
+   dplyr::count(RingCount) %>%
+  mutate(pct = n / sum(n),
+         pctlabel = paste0(round(pct*100), "%"))
+RingCountdata
+
+ggplot(RingCountdata, 
+       aes(x = reorder(RingCount, -pct),
+           y = pct)) + 
+  geom_bar(stat = "identity", 
+           fill = "indianred3", 
+           color = "black") +
+  geom_text(aes(label = pctlabel), 
+            vjust = -0.25) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "RingCount", 
+       y = "Percentage", 
+       title  = "Plot of (RingCount)")
+RingCountdata= table(cat_smallmol$RingCount,cat_smallmol$xLogP) 
+print(RingCountdata)
+```
+
+```{r}
+#NumAromaticRings
+ggboxplot(cat_smallmol, x = "xLogP", y = "NumAromaticRings", 
+          color = "xLogP", palette = c("#00AFBB", "#E7B800"),
+          order = c("0", "1"),
+          ylab = "Number of Aromatic rings", xlab = "Partition coeficient")
+ggplot(cat_smallmol, 
+       aes(x = NumAromaticRings, 
+           fill = xLogP)) + 
+  ggtitle("Plot of number of AromaticRings")+
+  geom_bar(position = position_dodge(preserve = "single"))
+
+NumAromaticRingsdata<-cat_smallmol %>%
+   dplyr::count(NumAromaticRings) %>%
+  mutate(pct = n / sum(n),
+         pctlabel = paste0(round(pct*100), "%"))
+NumAromaticRingsdata
+
+ggplot(NumAromaticRingsdata, 
+       aes(x = reorder(NumAromaticRings, -pct),
+           y = pct)) + 
+  geom_bar(stat = "identity", 
+           fill = "indianred3", 
+           color = "black") +
+  geom_text(aes(label = pctlabel), 
+            vjust = -0.25) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "NumAromaticRings", 
+       y = "Percentage", 
+       title  = "percentage Plot of number of AromaticRings (NumAromaticRings)")
+NumAromaticRingsdata= table(cat_smallmol$NumAromaticRings,cat_smallmol$xLogP) 
+print(NumAromaticRingsdata)
+```
+
+
+
+
+
+
+```{r}
+#NumSaturatedCarbocycles
+
+ggboxplot(cat_smallmol, x = "xLogP", y = "NumSaturatedCarbocycles", 
+          color = "xLogP", palette = c("#00AFBB", "#E7B800"),
+          order = c("0", "1"),
+          ylab = "Number of Saturated Carbocycles", xlab = "Partition coeficient")
+ggplot(cat_smallmol, 
+       aes(x = NumSaturatedCarbocycles, 
+           fill = xLogP)) + 
+  ggtitle("plot of Number of Saturated Carbocycles and XLogP")+
+  geom_bar(position = position_dodge(preserve = "single"))
+
+NumSaturatedCarbocyclesdata<-cat_smallmol %>%
+   dplyr::count(NumSaturatedCarbocycles) %>%
+  mutate(pct = n / sum(n),
+         pctlabel = paste0(round(pct*100), "%"))
+NumSaturatedCarbocyclesdata
+
+ggplot(NumSaturatedCarbocyclesdata, 
+       aes(x = reorder(NumSaturatedCarbocycles, -pct),
+           y = pct)) + 
+  geom_bar(stat = "identity", 
+           fill = "indianred3", 
+           color = "black") +
+  geom_text(aes(label = pctlabel), 
+            vjust = -0.25) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "NumSaturatedCarbocycles", 
+       y = "Percentage", 
+       title  = "Percentage Plot of number of SaturatedCarbocycles (NumSaturatedCarbocycles)")
+NumSaturatedCarbocyclesdata= table(cat_smallmol$NumSaturatedCarbocycles,cat_smallmol$xLogP) 
+print(NumSaturatedCarbocyclesdata)
+```
+
+```{r}
+#NumSaturatedRings,
+ggboxplot(cat_smallmol, x = "xLogP", y = "NumSaturatedRings", 
+          color = "xLogP", palette = c("#00AFBB", "#E7B800"),
+          order = c("0", "1"),
+          ylab = "Number of Number of Saturated Rings", xlab = "Partition coeficient")
+ggplot(cat_smallmol, 
+       aes(x = NumSaturatedRings, 
+           fill = xLogP)) + 
+  ggtitle("Plot of Number of Saturated Rings")+
+  geom_bar(position = position_dodge(preserve = "single"))
+
+NumSaturatedRingsdata<-cat_smallmol %>%
+   dplyr::count(NumSaturatedRings) %>%
+  mutate(pct = n / sum(n),
+         pctlabel = paste0(round(pct*100), "%"))
+NumSaturatedRingsdata
+
+ggplot(NumSaturatedRingsdata, 
+       aes(x = reorder(NumSaturatedRings, -pct),
+           y = pct)) + 
+  geom_bar(stat = "identity", 
+           fill = "indianred3", 
+           color = "black") +
+  geom_text(aes(label = pctlabel), 
+            vjust = -0.25) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "NumSaturatedRings", 
+       y = "Percentage", 
+       title  = "Percentage Plot of number of SaturatedRings (NumSaturatedRings)")
+NumSaturatedRingsdata= table(cat_smallmol$NumSaturatedRings,cat_smallmol$xLogP) 
+print(NumSaturatedRingsdata)
+```
+```{r}
+#NumAliphaticHeterocycles
+ggboxplot(cat_smallmol, x = "xLogP", y = "NumAliphaticHeterocycles", 
+          color = "xLogP", palette = c("#00AFBB", "#E7B800"),
+          order = c("0", "1"),
+          ylab = "Number of Number of NumAliphaticHeterocycles", xlab = "Partition coeficient")
+ggplot(cat_smallmol, 
+       aes(x = NumAliphaticHeterocycles, 
+           fill = xLogP)) + 
+  ggtitle("Plot of Number of AliphaticHeterocycles")+
+  geom_bar(position = position_dodge(preserve = "single"))
+
+NumAliphaticHeterocyclesdata<-cat_smallmol %>%
+   dplyr::count(NumAliphaticHeterocycles) %>%
+  mutate(pct = n / sum(n),
+         pctlabel = paste0(round(pct*100), "%"))
+NumAliphaticHeterocyclesdata
+
+ggplot(NumAliphaticHeterocyclesdata, 
+       aes(x = reorder(NumAliphaticHeterocycles, -pct),
+           y = pct)) + 
+  geom_bar(stat = "identity", 
+           fill = "indianred3", 
+           color = "black") +
+  geom_text(aes(label = pctlabel), 
+            vjust = -0.25) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "NumSaturatedRings", 
+       y = "Percentage", 
+       title  = "Percentage Plot of number of AliphaticHeterocycles (NumAliphaticHeterocycles)")
+NumAliphaticHeterocyclesdata= table(cat_smallmol$NumAliphaticHeterocycles,cat_smallmol$xLogP) 
+print(NumAliphaticHeterocyclesdata)
+```
+
+
+```{r}
+#NumAliphaticRings,
+ggboxplot(cat_smallmol, x = "xLogP", y = "NumAliphaticRings", 
+          color = "xLogP", palette = c("#00AFBB", "#E7B800"),
+          order = c("0", "1"),
+          ylab = " number of Aliphatic Rings", xlab = "Partition coeficient")
+ggplot(cat_smallmol, 
+       aes(x = NumAliphaticRings, 
+           fill = xLogP)) + 
+  ggtitle("Plot of number of Aliphatic Rings")+
+  geom_bar(position = position_dodge(preserve = "single"))
+
+NumAliphaticRingsdata<-cat_smallmol %>%
+  dplyr::count(NumAliphaticRings) %>%
+  mutate(pct = n / sum(n),
+         pctlabel = paste0(round(pct*100), "%"))
+NumAliphaticRingsdata
+
+ggplot(NumAliphaticRingsdata, 
+       aes(x = reorder(NumAliphaticRings, -pct),
+           y = pct)) + 
+  geom_bar(stat = "identity", 
+           fill = "indianred3", 
+           color = "black") +
+  geom_text(aes(label = pctlabel), 
+            vjust = -0.25) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "NumAliphaticRings", 
+       y = "Percentage", 
+       title  = "percentage Plot of number of AliphaticRings (NumAliphaticRings)")
+NumAliphaticRingsdata= table(cat_smallmol$NumAliphaticRings,cat_smallmol$xLogP) 
+print(NumAliphaticRingsdata)
+```
+
+```{r}
+#NumSaturatedHeterocycles
+ggboxplot(cat_smallmol, x = "xLogP", y = "NumSaturatedHeterocycles", 
+          color = "xLogP", palette = c("#00AFBB", "#E7B800"),
+          order = c("0", "1"),
+          ylab = "NumSaturatedHeterocycles", xlab = "Partition coeficient")
+ggplot(cat_smallmol, 
+       aes(x = NumSaturatedHeterocycles, 
+           fill = xLogP)) +
+  ggtitle("plot of Number of Saturated Heterocycles")+
+  geom_bar(position = position_dodge(preserve = "single"))
+
+NumAliphaticRingsdata<-cat_smallmol %>%
+  dplyr::count(NumSaturatedHeterocycles) %>%
+  mutate(pct = n / sum(n),
+         pctlabel = paste0(round(pct*100), "%"))
+NumAliphaticRingsdata
+
+ggplot(NumAliphaticRingsdata, 
+       aes(x = reorder(NumSaturatedHeterocycles, -pct),
+           y = pct)) + 
+  geom_bar(stat = "identity", 
+           fill = "indianred3", 
+           color = "black") +
+  geom_text(aes(label = pctlabel), 
+            vjust = -0.25) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "NumSaturatedHeterocycles", 
+       y = "Percentage", 
+       title  = "Percentage Plot of number of SaturatedHeterocycles (NumSaturatedHeterocycles)")
+NumAliphaticRingsdata= table(cat_smallmol$NumAliphaticRings,cat_smallmol$xLogP) 
+print(NumAliphaticRingsdata)
+
+#str(cat_smallmol)
+```
+```{r}
+cat_smallmol
+str(cat_smallmol)
+```
+
+```{r}
+
+library(corrplot)
+for(i in colnames(cat_smallmol)){
+ cat_table<-data.frame(cat_smallmol[[i]],cat_smallmol$xLogP)
+ cat_table<-table(cat_smallmol[[i]],cat_smallmol$xLogP)
+ cat_chisq<-chisq.test(cat_table)
+ print(cat_chisq)
+ print(cat_chisq$p.value)
+print(cat_chisq$observed)
+ print(cat_chisq$expected)
+ print(round(cat_chisq$expected,2))
+# #If you want to know the most contributing cells to the total Chi-square score, you just have to calculate the Chi-square statistic for each cell:
+# #r=(Diabeteschisq$observed−Diabeteschisq$expected)/√Diabeteschisq$observed , this is the literary explanation  we now do it in R program.
+#print(round(cat_chisq$residuals, 3))
+
+print(corrplot(cat_chisq$residuals, is.cor = FALSE))
+#Positive residuals are in blue. Positive values in cells specify an attraction (positive association) between the corresponding row of xLogp and column variables of partition coeficient
+#In the image below, it’s evident that there are an association between the columns
+#The contribution (in %) of a given cell to the total Chi-square score is calculated as follow:
+#contribcat_chisq=residuals^2/X-squared
+#100*cat_chisq$residuals^2/cat_chisq$statistic in percentage 
+#X-squared = cat_chisq$statistic
+contribcat_chisq<- 100*cat_chisq$residuals^2/cat_chisq$statistic
+print(contribcat_chisq, 3)
+print(round(contribcat_chisq, 3))
+}
+
+```
+
+
+```{r}
+# what we have done is to apply feature selection to this Data and use the best feature then compare our results to the original data. also export it for machine learning 
+#Let us now apply the feature selection algorithm Boruta.
+smallmol_data
+library("Boruta")
+set.seed(1)
+Boruta.smallmol_data <- Boruta(xLogP ~ ., data = smallmol_data,doTrace = 2, ntree = 500)
+smallmol_data
+# Outcome of feature selection. 
+Boruta.smallmol_data
+
+#Plot the importance of the attributes.
+plot(Boruta.smallmol_data)
+#One can see that Z score of the most important shadow attribute clearly separates important and non important attributes.
+#Confirming the tentative attributes, if some remained tentative in the initial round.
+Boruta.smallmol_data.final<-TentativeRoughFix(Boruta.smallmol_data)
+plot(Boruta.smallmol_data.final)
+attStats(Boruta.smallmol_data.final)
+#these features are selected based on the attStats function that creates a data frame containing each attribute's Z score statistics and the fraction of random forest runs in which this attribute was more important than the most important shadow one.
+
+#Variable Importance 
+#Now let’s learn how to see which are the most important variables for our model. We can use the Caret function varImp. The return of varImp can be passed to the #function ggplot to generate a visualization.
+ggplot(varImp(model.l))
+varImp(model.l)
+
+#The test set to inpute this model into will come from the active ACE2 and sars drug test set 
+```
+
+```{r}
+# if we can show a correlation and other analysis between the xlogp and the active ic50 of the ACE2 and proteins ,. then we can make prediction assuming this as our    data to predict.  
+#create a new data with the variable of importance ranking 
+# Polar_Surface_A	100.00000000			
+# NumHAcceptors	77.27368993			
+# NumHeteroatoms	64.22651469			
+# NumHDonors	51.05077298			
+# NumAromaticRings	46.25296396			
+# RingCount	36.34357730			
+# MolWt	33.18336565			
+# HeavyAtomMolWt	32.62629533	
+
+
+smallmol_mx<-subset(smallmol_data, select=c(Polar_Surface_A,NumHAcceptors,NumHeteroatoms,NumHDonors,NumAromaticRings,RingCount,MolWt,HeavyAtomMolWt,NumSaturatedCarbocycles,NumSaturatedHeterocycles,NumAliphaticHeterocycles,NumAliphaticRings,NumRotatableBonds, NumSaturatedRings,xLogP))
+smallmol_mx
+# New features selected are 15 variables including xLogP "Partition coeficient" 
+str(smallmol_mx)
+smallmol_mx$xLogP
+
+table(smallmol_mx$xLogP)
+```
+
+
+#Balancing target class xlogp and 
+```{r}
+#balancing unbalanced class
+#Balance the target column for data analysis and statistical modelling, that column is HeartData$DEATH_EVENT which is the target feature 
+library(MASS)
+library(DMwR)
+library(caret)
+
+smallmol_mx$xLogP<- factor(smallmol_mx$xLogP, levels=c('0','1'))
+# to balance the sample at a good level of sampling we double sample,. a new contribution to this project to balance our dataset., our goal is to balance at under  975 for 1 and 2.
+smallmol_mx<-SMOTE(xLogP~ .,smallmol_mx, perc.over =100,perc.under=200)
+
+
+#There is need to reorder the target column variable to the the levels for confusion matrix
+table(smallmol_mx$xLogP)
+smallmol_mx$xLogP<- ordered(smallmol_mx$xLogP, levels = c("1", "0"))
+table(smallmol_mx$xLogP)
+```
+
+
+```{r}
+#Machine learning prediction of xlogP 
+#clustering #svm, #KNN #logistic regression models 
+```
+
+
+```{r}
+#clustering of xLogP partition coeficient 
+library(readr)
+library(e1071)
+library(MLmetrics)
+
+#unsupervised machine learning approach
+# Installing Packages 
+#install.packages("ClusterR") 
+#install.packages("cluster") 
+library(caret)
+# Loading package 
+#install.packages("ClusterR")
+library(ClusterR) 
+library(cluster) 
+
+smallmol_mx$xlogP
+
+str(smallmol_mx)
+# Removing initial label of from original dataset 
+smallmol_mx_RC<-smallmol_mx[, -15] 
+smallmol_mx_RC
+
+```
+
+
+```{r}
+#implementing the elbow method to find the optimal number of clusters 
+tot_withinss <- map_dbl(1:10,  function(k){
+  model <- kmeans(x = smallmol_mx_RC, centers = k)
+  model$tot.withinss
+})
+ 
+# Generate a data frame containing both k and tot_withinss
+elbow_df <- data.frame(
+  k = 1:10,
+  tot_withinss = tot_withinss
+)
+ 
+ 
+# Plot the elbow plot
+ggplot(elbow_df, aes(x = k, y = tot_withinss)) +
+  geom_line() + geom_point()+
+  scale_x_continuous(breaks = 1:10)
+# by this graph we can see that the elbow starts forming at position 2 and forms at position 3,. however we have clustered other numbers to get deep insight into the parterns formed
+```
+
+
+
+
+```{r}
+# Fitting K-Means clustering Model  
+# to training dataset 
+set.seed(240) # Setting seed 
+kmeans.rec <- kmeans(smallmol_mx_RC, centers =2, nstart = 20) 
+kmeans.rec 
+table(kmeans.rec$cluster)
+table(smallmol_mx$xLogP)
+#smallmol_maxo$xLogP
+
+# Cluster identification for  
+# each observation 
+kmeans.rec$cluster 
+  
+
+
+ #smallmol_mx
+# Model Evaluation and visualization 
+plot(smallmol_mx_RC[c("Polar_Surface_A","NumHAcceptors","NumHeteroatoms","NumHDonors","NumAromaticRings","RingCount","MolWt","HeavyAtomMolWt","NumSaturatedCarbocycles","NumSaturatedHeterocycles","NumAliphaticHeterocycles","NumAliphaticRings","NumRotatableBonds","NumSaturatedRings")],  
+     col = kmeans.rec$cluster,pch = 8, cex =0.5,
+     main ="K-means with 2 clusters Cluster smallmol_mx 14 features") 
+## Visualizing clusters 
+n_kmeans <- kmeans.rec$cluster 
+clusplot(smallmol_mx_RC[, c("Polar_Surface_A","NumHAcceptors","NumHeteroatoms","NumHDonors","NumAromaticRings","RingCount","MolWt","HeavyAtomMolWt","NumSaturatedCarbocycles","NumSaturatedHeterocycles","NumAliphaticHeterocycles","NumAliphaticRings","NumRotatableBonds","NumSaturatedRings")], 
+         n_kmeans, 
+         lines = 1, 
+         shade = TRUE, 
+         color = TRUE, 
+         labels = 2, 
+         plotchar = TRUE, 
+         span = TRUE, 
+         main = paste("Cluster smallmol_mx 14 features"), 
+         xlab = 'cluster pointsx', 
+         ylab = 'clusterpointy')
+n_kmeans
+
+con_ma<-table(smallmol_mx$xLogP, kmeans.rec$cluster)
+con_ma
+# we depends on the confusion matrix to configure this prediction 
+conf_matrix<-table(smallmol_mx$xLogP, kmeans.rec$cluster)
+conf_matrix
+
+
+#Actual Positive is the value 1,  Actual Negative is the value 0
+
+lvs <- c("0", "1")
+truthtactually<- factor(rep(lvs, times = c(386, 386)),
+                levels = rev(lvs))
+kmeans.rec$cluster <- factor(
+               c(
+                 rep(lvs, times = c(364,22)),
+                 rep(lvs, times = c(372,14))),               
+               levels = rev(lvs))
+length(kmeans.rec$cluster)
+length(truthtactually)
+xtab <- table(kmeans.rec$cluster, truthtactually)
+caret::confusionMatrix(xtab)
+resulto<- confusionMatrix(kmeans.rec$cluster, truthtactually)
+resulto
+precision<- resulto$byClass['Pos Pred Value']
+precision
+recall<- resulto$byClass['Sensitivity']
+recall
+
+########################################################################################################################################################
+
+#implementing the elbow result of three clusters  
+set.seed(240) # Setting seed 
+kmeans.rec3 <- kmeans(smallmol_mx_RC, centers =3, nstart = 20) 
+kmeans.rec3 
+table(kmeans.rec3$cluster)
+table(smallmol_mx$xLogP)
+#smallmol_maxo$xLogP
+
+# Cluster identification for  
+# each observation 
+kmeans.rec3$cluster 
+  
+
+
+ #smallmol_mx
+# Model Evaluation and visualization 
+plot(smallmol_mx_RC[c("Polar_Surface_A","NumHAcceptors","NumHeteroatoms","NumHDonors","NumAromaticRings","RingCount","MolWt","HeavyAtomMolWt","NumSaturatedCarbocycles","NumSaturatedHeterocycles","NumAliphaticHeterocycles","NumAliphaticRings","NumRotatableBonds","NumSaturatedRings")],  
+     col = kmeans.rec3$cluster,pch = 8, cex =0.5,
+     main ="K-means with 3 clusters Cluster smallmol_mx 14 features") 
+## Visualizing clusters 
+n_kmeansrec3<- kmeans.rec3$cluster 
+clusplot(smallmol_mx_RC[, c("Polar_Surface_A","NumHAcceptors","NumHeteroatoms","NumHDonors","NumAromaticRings","RingCount","MolWt","HeavyAtomMolWt","NumSaturatedCarbocycles","NumSaturatedHeterocycles","NumAliphaticHeterocycles","NumAliphaticRings","NumRotatableBonds","NumSaturatedRings")], 
+         n_kmeansrec3, 
+         lines = 1, 
+         shade = TRUE, 
+         color = TRUE, 
+         labels = 2, 
+         plotchar = TRUE, 
+         span = TRUE, 
+         main = paste("Cluster smallmol_mx 14 features"), 
+         xlab = 'cluster pointsx', 
+         ylab = 'clusterpointy')
+n_kmeansrec3
+
+```
+
+```{r}
+#using the selected 7features 
+# Removing initial label and four more features from original smallmol_mx dataset 
+
+smallmol_ten<-smallmol_mx[-c(11:14)]
+smallmol_ten_R<-smallmol_ten[,-11] 
+smallmol_ten
+str(smallmol_ten) #used to get the xLogP confusion matrix
+str(smallmol_ten_R)# used for clustering without xLogP label 
+
+ 
+# Fitting K-Means clustering Model  
+# to training dataset 
+set.seed(240) # Setting seed 
+kmeans.reimp<- kmeans(smallmol_ten_R, centers = 2, nstart = 20) 
+kmeans.reimp 
+  
+# Cluster identification for  
+# each observation 
+kmeans.reimp$cluster 
+  
+# Confusion Matrix 
+
+  
+# Model Evaluation and visualization with 10 features
+plot(smallmol_ten_R[c("Polar_Surface_A","NumHAcceptors","NumHeteroatoms","NumHDonors","NumAromaticRings","RingCount","MolWt","HeavyAtomMolWt","NumSaturatedCarbocycles","NumSaturatedHeterocycles")],  
+     col = kmeans.reimp$cluster,pch =3, cex =0.3,
+     main = "K-means with 2 clusters Cluster smallmol_ten_R important features") 
+## Visualizing clusters 
+n_kmeansimp<- kmeans.reimp$cluster 
+clusplot(smallmol_ten_R[, c("Polar_Surface_A","NumHAcceptors","NumHeteroatoms","NumHDonors","NumAromaticRings","RingCount","MolWt","HeavyAtomMolWt","NumSaturatedCarbocycles","NumSaturatedHeterocycles")], 
+         n_kmeans, 
+         lines = 1, 
+         shade = TRUE, 
+         color = TRUE, 
+         labels = 2, 
+         plotchar = TRUE, 
+         span = TRUE, 
+         main = paste("Cluster 10 most important features"), 
+         xlab = 'cluster pointsx', 
+         ylab = 'clusterpointy')
+n_kmeansimp
+
+confusion_ma<- table(smallmol_ten$xLogP,kmeans.reimp$cluster) 
+confusion_ma
+
+conf_mat<-table(smallmol_mx$xLogP, kmeans.reimp$cluster)
+conf_mat
+
+lvs <- c("0", "1")
+truthac<- factor(rep(lvs, times = c(386,386)),
+                levels = rev(lvs))
+kmeans.reimp$cluster<- factor(
+               c(
+                 rep(lvs, times = c(22,364)),
+                 rep(lvs, times = c(14,372))),               
+               levels = rev(lvs))
+
+xtab1k<-table(kmeans.reimp$cluster,truthac)
+length(kmeans.reimp$cluster)
+length(truthac)
+#table(truth1)
+caret::confusionMatrix(xtab1k)
+result1<- confusionMatrix(kmeans.reimp$cluster,truthac)
+result1
+precision1<- result1$byClass['Pos Pred Value']
+precision1
+recall1<- result1$byClass['Sensitivity']
+recall1
+```
+
+
+
+
+```{r}
+
+#using the selected 4 features 
+# Removing initial label of from original dataset 
+
+
+
+smallmol_7<-smallmol_mx[-c(8:14)]
+smallmol_7_R<-smallmol_7[,-8] 
+
+str(smallmol_7) #used to get the xLogP confusion matrix
+str(smallmol_7_R)# used for clustering without xLogP label 
+
+# Fitting K-Means clustering Model  
+# to training dataset 
+set.seed(240) # Setting seed 
+kmeans.reimp4<- kmeans(smallmol_7_R, centers = 2, nstart = 20) 
+kmeans.reimp4 
+  
+# Cluster identification for  
+# each observation 
+kmeans.reimp4$cluster 
+  
+
+  
+# Model Evaluation and visualization 
+plot(smallmol_7_R[c("Polar_Surface_A","NumHAcceptors","NumHeteroatoms","NumHDonors","NumAromaticRings","RingCount","MolWt")],  
+     col = kmeans.reimp4$cluster,pch = 8, cex =0.5,
+     main = "K-means with 2 clusters,Cluster smallmol_mx 7 most important features") 
+## Visualizing clusters 
+n_kmeansimp4<- kmeans.reimp4$cluster 
+clusplot(smallmol_7_R[, c("Polar_Surface_A","NumHAcceptors","NumHeteroatoms","NumHDonors","NumAromaticRings","RingCount","MolWt")], 
+         n_kmeans, 
+         lines = 1, 
+         shade = TRUE, 
+         color = TRUE, 
+         labels = 2, 
+         plotchar = TRUE, 
+         span = TRUE, 
+         main = paste("Cluster smallmol_mx 7 most important features"), 
+         xlab = 'cluster pointsx', 
+         ylab = 'clusterpointy')
+n_kmeansimp4
+
+#Confusion Matrix 
+confusion_mo<-table(smallmol_7$xLogP,kmeans.reimp4$cluster) 
+confusion_mo
+
+conf_m<-table(smallmol_mx$xLogP, kmeans.reimp4$cluster)
+conf_m
+
+lvs <- c("0", "1")
+truthactua<- factor(rep(lvs, times = c(386,386)),
+                levels = rev(lvs))
+kmeans.reimp4$cluster<- factor(
+              c(
+                 rep(lvs, times = c(22,364)),
+                 rep(lvs, times = c(14,372))),               
+               levels = rev(lvs))
+xtaba<-table(kmeans.reimp4$cluster,truthactua)
+length(kmeans.reimp4$cluster)
+length(truthactua)
+caret::confusionMatrix(xtaba)
+result2<- confusionMatrix(kmeans.reimp4$cluster,truthactua)
+result2
+precision1<- result1$byClass['Pos Pred Value']
+precision1
+recall2<- result2$byClass['Sensitivity']
+recall2
+
+```
+
+
+
+
+```{r}
+# Model Evaluation and visualization 
+kmeans.reimp4<- kmeans(smallmol_7_R, centers = 4, nstart = 20) 
+kmeans.reimp4 
+  
+# Cluster identification for  
+# each observation 
+kmeans.reimp4$cluster 
+  
+
+  
+# Model Evaluation and visualization 
+plot(smallmol_7_R[c("Polar_Surface_A","NumHAcceptors","NumHeteroatoms","NumHDonors","NumAromaticRings","RingCount","MolWt")],  
+     col = kmeans.reimp4$cluster,pch = 8, cex =0.5,
+     main = "K-means with 4 clusters,Cluster smallmol_mx 7 most important features") 
+## Visualizing clusters 
+n_kmeansimp4<- kmeans.reimp4$cluster 
+clusplot(smallmol_7_R[, c("Polar_Surface_A","NumHAcceptors","NumHeteroatoms","NumHDonors","NumAromaticRings","RingCount","MolWt")], 
+        n_kmeansimp4, 
+         lines = 1, 
+         shade = TRUE, 
+         color = TRUE, 
+         labels = 2, 
+         plotchar = TRUE, 
+         span = TRUE, 
+         main = paste("Cluster smallmol_mx 7 most important features"), 
+         xlab = 'cluster pointsx', 
+         ylab = 'clusterpointy')
+  
+
+
+```
+
+
+```{r}
+# Model Evaluation and visualization 
+kmeans.reimp16<- kmeans(smallmol_7_R, centers = 16, nstart = 20) 
+kmeans.reimp16 
+  
+# Cluster identification for  
+# each observation 
+kmeans.reimp16$cluster 
+  
+
+  
+# Model Evaluation and visualization 
+plot(smallmol_7_R[c("Polar_Surface_A","NumHAcceptors","NumHeteroatoms","NumHDonors","NumAromaticRings","RingCount","MolWt")],  
+     col = kmeans.reimp4$cluster,pch = 8, cex =0.5,
+     main = "K-means with 16 clusters,Cluster smallmol_mx 7 most important features") 
+## Visualizing clusters 
+n_kmeansimp16<- kmeans.reimp16$cluster 
+clusplot(smallmol_7_R[, c("Polar_Surface_A","NumHAcceptors","NumHeteroatoms","NumHDonors","NumAromaticRings","RingCount","MolWt")], 
+         n_kmeansimp16, 
+         lines = 1, 
+         shade = TRUE, 
+         color = TRUE, 
+         labels = 2, 
+         plotchar = TRUE, 
+         span = TRUE, 
+         main = paste("Cluster smallmol_mx 7 most important features"), 
+         xlab = 'cluster pointsx', 
+         ylab = 'clusterpointy')
+  
+```
+
+
+```{r}
+library(e1071) 
+library(caTools) 
+library(class) 
+
+
+  
+#load data 
+smallmol_mx
+smallmol_mx$xLogP<-as.character.factor(smallmol_mx$xLogP)
+str(smallmol_mx$xLogP)
+
+smallmol_mx$xLogP
+
+ table(smallmol_mx$xLogP)
+# Splitting data into train 
+# and test data 
+split<-sample.split(smallmol_mx, SplitRatio = 0.8) 
+train<-subset(smallmol_mx, split == "TRUE") 
+test<- subset(smallmol_mx, split == "FALSE") 
+
+
+#Feature Scaling 
+train_scale <-scale(train[, 1:14]) 
+test_scale <-scale(test[, 1:14])
+
+table(test$xLogP)
+table(train$xLogP)
+
+```
+
+
+
+```{r}
+# Fitting KNN Model  
+# to training dataset 
+library(class)
+
+
+
+classifier_knn<-class::knn( train = train_scale, 
+                      test = test_scale, 
+                      cl =train$xLogP, 
+                      k = 1) 
+classifier_knn 
+table(classifier_knn)
+  
+# Model Evaluation - Choosing K 
+# Calculate out of Sample error 
+misClassError1 <- mean(classifier_knn != test$xLogP) 
+print(paste('Accuracy =', 1-misClassError1)) 
+
+conf_mknn1<-table(test$xLogP, classifier_knn)
+conf_mknn1
+
+
+lvs <- c("0", "1")
+truth<- factor(rep(lvs, times = c(76, 78)),
+                levels = rev(lvs))
+predict_xLogp1<- factor(
+               c(
+                 rep(lvs, times = c(70,6)),
+                 rep(lvs, times = c(10, 68))),               
+               levels = rev(lvs))
+xtab <- table(predict_xLogp1, truth)
+caret::confusionMatrix(xtab)
+result<- confusionMatrix(predict_xLogp1, truth)
+result
+precision<- result$byClass['Pos Pred Value']
+precision
+recall<- result$byClass['Sensitivity']
+recall
+
+
+```
+
+```{r}
+# K = 3 
+classifier_knn3<- knn(train = train_scale, 
+                      test = test_scale, 
+                      cl = train$xLogP, 
+                      k = 3) 
+classifier_knn3 
+# Model Evaluation - Choosing K 
+# Calculate out of Sample error 
+misClassError3 <- mean(classifier_knn3 != test$xLogP) 
+print(paste('Accuracy =', 1-misClassError3))
+
+
+   conm3<-table(classifier_knn3,test$xLogP)
+   conm3
+   
+conf_mknn3<-table(test$xLogP, classifier_knn3)
+conf_mknn3
+misClassError <- mean(classifier_knn3 != test$xLogP) 
+print(paste('Accuracy =', 1-misClassError))    
+lvs <- c("0", "1")
+truthn<- factor(rep(lvs, times = c(76, 78)),
+                levels = rev(lvs))
+predict_xLogp3<- factor(
+               c(
+                 rep(lvs, times = c(72, 4)),
+                 rep(lvs, times = c(12, 66))),               
+               levels = rev(lvs))
+xtab <- table(predict_xLogp3, truthn)
+caret::confusionMatrix(xtab)
+result<- confusionMatrix(predict_xLogp3, truthn)
+result
+precision<- result$byClass['Pos Pred Value']
+precision
+recall<- result$byClass['Sensitivity']
+recall
+```
+
+```{r}
+# K = 5 
+classifier_knn5<- knn(train = train_scale, 
+                      test = test_scale, 
+                      cl = train$xLogP, 
+                      k = 5) 
+classifier_knn5 
+# Model Evaluation - Choosing K 
+# Calculate out of Sample error 
+misClassError5<- mean(classifier_knn5 != test$xLogP) 
+print(paste('Accuracy =', 1-misClassError5)) 
+
+table(test$xLogP)
+   conm5<-table(classifier_knn5,test$xLogP)
+   conm5
+   
+misClassError <- mean(classifier_knn5 != test$xLogP) 
+print(paste('Accuracy =', 1-misClassError)) 
+
+conf_mknn5<-table(test$xLogP, classifier_knn5)
+conf_mknn5
+
+lvs <- c("0", "1")
+trutha<- factor(rep(lvs, times = c(76, 78)),
+                levels = rev(lvs))
+predict_xLogp1<- factor(
+               c(
+                 rep(lvs, times = c(69,7)),
+                 rep(lvs, times = c(15,63))),               
+               levels = rev(lvs))
+xtab <- table(predict_xLogp1, trutha)
+caret::confusionMatrix(xtab)
+result<- confusionMatrix(predict_xLogp1, trutha)
+result
+precision<- result$byClass['Pos Pred Value']
+precision
+recall<- result$byClass['Sensitivity']
+recall
+```
+
+```{r}
+# K = 7 
+classifier_knn7<- knn(train = train_scale, 
+                      test = test_scale, 
+                      cl = train$xLogP, 
+                      k = 7) 
+classifier_knn7
+# Model Evaluation - Choosing K 
+# Calculate out of Sample error 
+misClassError7<- mean(classifier_knn7 != test$xLogP) 
+print(paste('Accuracy =', 1-misClassError7))
+
+   conm7<-table(classifier_knn7,test$xLogP)
+   conm7
+conf_mknn7<-table(test$xLogP, classifier_knn7)
+conf_mknn7
+lvs <- c("0", "1")
+truthb<- factor(rep(lvs, times = c(76, 78)),
+                levels = rev(lvs))
+predict_xLogp1<- factor(
+               c(
+                 rep(lvs, times = c(71,5)),
+                 rep(lvs, times = c(18,60))),               
+               levels = rev(lvs))
+xtab <- table(predict_xLogp1, truthb)
+caret::confusionMatrix(xtab)
+result<- confusionMatrix(predict_xLogp1, truthb)
+result
+precision<- result$byClass['Pos Pred Value']
+precision
+recall<- result$byClass['Sensitivity']
+recall
+```
+
+```{r}
+# K = 15 
+classifier_knn15<- knn(train = train_scale, 
+                      test = test_scale, 
+                      cl = train$xLogP, 
+                      k = 15) 
+classifier_knn15 
+# Model Evaluation - Choosing K 
+# Calculate out of Sample error 
+misClassError15<- mean(classifier_knn15 != test$xLogP) 
+print(paste('Accuracy =', 1-misClassError15)) 
+
+
+   conm15<-table(classifier_knn15,test$xLogP)
+   conm15
+   conf_mknn15<-table(test$xLogP, classifier_knn15)
+conf_mknn15
+  lvs <- c("0", "1")
+truthy<- factor(rep(lvs, times = c(76, 78)),
+                levels = rev(lvs))
+predict_xLogp1<- factor(
+               c(
+                 rep(lvs, times = c(69,7)),
+                 rep(lvs, times = c(17,61))),               
+               levels = rev(lvs))
+xtab <- table(predict_xLogp1, truthy)
+caret::confusionMatrix(xtab)
+result<- confusionMatrix(predict_xLogp1, truthy)
+result
+precision<- result$byClass['Pos Pred Value']
+precision
+recall<- result$byClass['Sensitivity']
+recall
+
+```
+
+
+```{r}
+# K = 19 
+classifier_knn19<- knn(train = train_scale, 
+                      test = test_scale, 
+                      cl = train$xLogP, 
+                      k = 19) 
+classifier_knn19
+# Model Evaluation - Choosing K 
+# Calculate out of Sample error 
+misClassError19<- mean(classifier_knn19!= test$xLogP) 
+print(paste('Accuracy =', 1-misClassError19))
+  conm19<-table(classifier_knn19,test$xLogP)
+   conm19
+   conf_mknn19<-table(test$xLogP, classifier_knn19)
+conf_mknn19
+lvs <- c("0", "1")
+truthp1<- factor(rep(lvs, times = c(76, 78)),
+                levels = rev(lvs))
+predict_xLogpas<-factor(
+               c(
+                 rep(lvs, times = c(71,5)),
+                 rep(lvs, times = c(17,61))),               
+               levels = rev(lvs))
+xtab <- table(predict_xLogpas, truthp1)
+caret::confusionMatrix(xtab)
+result<- confusionMatrix(predict_xLogpas, truthp1)
+result
+precision<-result$byClass['Pos Pred Value']
+precision
+recall<-result$byClass['Sensitivity']
+recall
+```
+
+
+```{r}
+library(e1071) 
+#SVM
+ # smallmol_mx$xLogP = factor(smallmol_mx$xLogP, levels = c(1, 0))
+ # smallmol_mx$xLogP
+ # table(smallmol_mx$xLogP)
+ # smallmol_mx$xLogP
+ # str(smallmol_mx)
+# Splitting the dataset into the Training set and Test set 
+#install.packages('caTools') 
+library(caTools) 
+  
+set.seed(123) 
+split = sample.split(smallmol_mx$xLogP, SplitRatio = 0.80) 
+  
+training_smallmol_mx = subset(smallmol_mx, split == TRUE) 
+test_smallmol_mx = subset(smallmol_mx, split == FALSE) 
+
+table(test_smallmol_mx$xLogP)
+
+training_smallmol_mx
+# Feature Scaling 
+training_smallmol_mx[-15] = scale(training_smallmol_mx[-15]) 
+test_smallmol_mx[-15] = scale(test_smallmol_mx[-15])
+
+training_smallmol_mx[-15]
+#install.packages('e1071') 
+
+  
+
+classifier = svm(formula = xLogP ~ ., 
+                 data = training_smallmol_mx, 
+                 type = 'C-classification', 
+                 kernel = 'linear') 
+library(caret)
+y_pred = predict(classifier, newdata = test_smallmol_mx[-15])
+trctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+grid <- expand.grid(C = c(0,0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2,5))
+svm_Linear_Grid <- train(xLogP ~., data = training_smallmol_mx, method = "svmLinear",
+trControl=trctrl,
+preProcess = c("center", "scale"),
+tuneGrid = grid,
+tuneLength = 10)
+svm_Linear_Grid
+plot(svm_Linear_Grid)
+
+
+  
+# Plotting the training data set results 
+set = test_smallmol_mx 
+X1 = seq(min(set[, 1]) - 1, max(set[, 1]) + 1, by = 0.01) 
+X2 = seq(min(set[, 2]) - 1, max(set[, 2]) + 1, by = 0.01) 
+ 
+grid_set=expand.grid(X1, X2) 
+
+plot(set[, -13], main = 'plot of test Support vector machine', 
+xlim = range(X1), ylim = range(X2)) 
+
+comx = table(test_smallmol_mx[,15], y_pred) 
+comx
+
+conf_matrixsvm<-table(test_smallmol_mx[,15], y_pred)
+conf_matrixsvm
+
+lvs <- c("0", "1")
+truthsvm<- factor(rep(lvs,times = c(77, 77)),
+                levels = rev(lvs))
+y_pred<- factor(
+               c(
+                 rep(lvs, times = c(74,3)),
+                 rep(lvs, times = c(9,68))),               
+               levels = rev(lvs))
+xtabsvm<- table(y_pred, truthsvm)
+caret::confusionMatrix(xtabsvm)
+resultsvm<- confusionMatrix(y_pred, truthsvm)
+resultsvm
+precision<- resultsvm$byClass['Pos Pred Value']
+precision
+recall<- resultsvm$byClass['Sensitivity']
+recall
+```
+
+
+```{r}
+#logistic regression 
+library(caTools) 
+library(ROCR) 
+library(caret)
+library(glmnet)
+#install.packages("mlogit")
+library(mlogit)
+library(readr)
+#install.packages("rio")
+library(rio)
+#install.packages("dplyr")
+library(dplyr)
+#install.packages(tidyselect"")
+library(tidyselect)
+library(e1071)
+library(tidyverse)
+library(caret)
+library(data.table)
+library(MASS)
+library(caTools)
+
+set.seed(1)
+
+smallmol_mx$xLogP<-as.factor(smallmol_mx$xLogP)
+split<-sample.split(smallmol_mx, SplitRatio = 0.8) 
+train<-subset(smallmol_mx, split == "TRUE") 
+test<- subset(smallmol_mx, split == "FALSE") 
+
+table(test$xLogP)
+table(train$xLogP)
+```
+
+```{r}
+#Training model 
+Hmodel <- glm(xLogP~.,data=train,family = binomial(logit), maxit = 100) 
+Hmodel
+# Summary 
+summary(Hmodel) 
+   
+# Predict test data based on model 
+predict_xLogP <-predict(Hmodel,test, type = "response") 
+predict_xLogP 
+   
+# Changing probabilities 
+predict_xLogP<- ifelse(predict_xLogP>0.5, 1, 0) 
+   
+# Evaluating model accuracy 
+# using confusion matrix 
+table(test$xLogP,predict_xLogP) 
+   
+classerr <- mean(predict_xLogP != test$xLogP) 
+#print(paste('Accuracy =', 1 -classerr)) 
+ mean(predict_xLogP==test$xLogP)
+table(predict_xLogP==test$xLogP)  
+# ROC-AUC Curve 
+    test[,15]
+ROCPred<-ROCR::prediction(predict_xLogP, test[,15])  
+ROCPer <-ROCR::performance(ROCPred,"tpr", x.measure = "fpr") 
+   
+auc <- performance(ROCPred, measure = "auc") 
+auc <- auc@y.values[[1]] 
+auc 
+
+# Plotting curve 
+plot(ROCPer) 
+plot(ROCPer, colorize = TRUE,  
+     print.cutoffs.at = seq(0.1, by = 0.1),  
+     main = "ROC CURVE") 
+abline(a = 0, b = 1) 
+   
+auc <- round(auc, 4) 
+legend(.6, .4, auc, title = "AUC", cex =0.3)
+# table(test$xLogP)
+# table(train$xLogp)
+   #confusion matrix and accuracy
+ table(predict_xLogP,test$xLogP)
+ table(test$xLogP)
+lvs <- c("0", "1")
+trutho <- factor(rep(lvs, times = c(78, 78)),
+                levels = rev(lvs))
+predict_xLogP<- factor(
+               c(
+                 rep(lvs, times = c(73,5)),
+                 rep(lvs, times = c(7, 71))),               
+               levels = rev(lvs))
+xtab <- table(predict_xLogP, trutho)
+caret::confusionMatrix(xtab)
+result<- confusionMatrix(predict_xLogP, trutho)
+result
+precision<- result$byClass['Pos Pred Value']
+precision
+recall<- result$byClass['Sensitivity']
+recall
+
+
+
+```
+
+```{r}
+#optimize our regression model with step wise logistic regression
+#we use a step 
+#Training model 
+opt_model <- glm(xLogP~.,data=train,family = binomial(logit), maxit = 100) 
+opt_model
+# Summary 
+summary(opt_model) 
+   opt_model %>% stepAIC(trace = FALSE)
+coef(opt_model)
+summary(opt_model)$coef
+# Predict test data based on model 
+
+
+
+
+predict_xLogp1 <-predict(opt_model,test, type = "response") 
+predict_xLogp1 
+   probabilities <- opt_model %>% predict(test, type = "response")
+# Changing probabilities 
+predict_xLogp1<-ifelse(probabilities > 0.5, 1, 0)
+# Evaluating model accuracy 
+# using confusion matrix 
+table(test$xLogP,predict_xLogp1) 
+   
+#classerr <- mean(predict_xLogP != test$xLogP) 
+#print(paste('Accuracy =', 1 -classerr)) 
+ mean(predict_xLogp1==test$xLogP)
+table(predict_xLogp1==test$xLogP)  
+# ROC-AUC Curve 
+ROCPred<-ROCR::prediction(predict_xLogp1, test[,15])  
+ROCPer <-ROCR::performance(ROCPred,"tpr", x.measure = "fpr") 
+   
+auc <- performance(ROCPred, measure = "auc") 
+auc <- auc@y.values[[1]] 
+auc 
+
+# Plotting curve 
+plot(ROCPer) 
+plot(ROCPer, colorize = TRUE,  
+     print.cutoffs.at = seq(0.1, by = 0.1),  
+     main = "ROC CURVE") 
+abline(a = 1, b = 2) 
+   
+auc <- round(auc, 4) 
+legend(.6, .4, auc, title = "AUC", cex =0.3)
+
+   #confusion matrix and accuracy
+
+table(test$xLogP, predict_xLogp1)
+lvs <- c("0", "1")
+truthvb<- factor(rep(lvs, times = c(78,78)),
+                levels = rev(lvs))
+predict_xLogp1<- factor(
+               c(
+                 rep(lvs, times = c(72, 6)),
+                 rep(lvs, times = c(6, 72))),               
+               levels = rev(lvs))
+xtab <- table(predict_xLogp1,truthvb)
+caret::confusionMatrix(xtab)
+result<- confusionMatrix(predict_xLogp1,truthvb)
+result
+precision<- result$byClass['Pos Pred Value']
+precision
+recall<- result$byClass['Sensitivity']
+recall
+```
+
+
+```{r}
+#Data preparation, in using random forest to classify and analyse our data , using first features of importance
+
+# Check number of rows and columns.
+dim(smallmol_mx)
+str(smallmol_mx)
+
+table(smallmol_mx$xLogP)
+# Splitting the dataset into the Training set and Test set
+#install.packages('caTools')
+library(caTools)
+set.seed(71)
+
+table(train$xLogP)
+table(test$xLogP)
+```
+
+```{r}
+#2.Then we train the classifier to obtain a random forest classifier model.
+
+# Train and tune the random forest (rf) algorithm on the training data.
+library(randomForest)
+
+# Find the optimal value of mtry.
+set.seed(71) 
+#we remove the highly correlated variables xLogp and  using the grep function to identify their positions
+#grep("Molwt", colnames(smallmol_mx))
+#grep("xLogP", colnames(smallmol_mx))
+mtry <- tuneRF(train[,-c(7,15)],train$xLogP, ntreeTry=500,
+               stepFactor=1.5,improve=0.01, trace=TRUE, plot=TRUE)
+best.m <- mtry[mtry[, 2] == min(mtry[, 2]),1]
+
+print(mtry)
+print(best.m)
+
+
+#Apply random forest (rf) with the optimal value of mtry.
+set.seed
+#rf is the model 
+rf <-randomForest(xLogP~.,data=train, mtry=best.m, importance=TRUE,ntree=500)
+print(rf)
+plot(rf)
+
+#Evaluate variable importance
+randomForest::importance(rf)
+varImpPlot(rf)
+
+
+```
+
+
+```{r}
+#3: Then the classifier is evaluated 
+#Predicting the Test set results.
+y_pred = predict(rf, newdata = test)
+
+# install.packages('MLmetrics')
+library(MLmetrics)
+# Making the Confusion Matrix
+(cm = ConfusionMatrix(y_pred, test$xLogP))
+
+#(Classification.Accuracy <- 100*Accuracy(y_pred, test$xLogP))
+#This will predict and calculate our performance metric
+pred1=predict(rf,newdata = test,type = "prob")
+pred1
+library(ROCR)
+perf = ROCR::prediction(pred1[,2],test$xLogP)
+
+# 0. Accuracy.
+acc = performance(perf, "acc")
+plot(acc,main="Accurcay Curve for Random Forest",col=29,lwd=2)
+
+# 1. Area under curve
+auc = performance(perf, "auc")
+auc@y.values[[1]]
+
+# 2. True Positive and Negative Rate
+pred3 = performance(perf, "tpr","fpr")
+pred3
+
+# 3. we Plot the ROC curve
+plot(pred3,main="ROC Curve for Random Forest",col=3,lwd=3)
+abline(a=0,b=1,lwd=2,lty=3,col="gray")
+
+lvs <- c("0", "1")
+actualpre<- factor(rep(lvs, times = c(78,78)),
+                levels = rev(lvs))
+   y_pred<- factor(
+                c(
+                 rep(lvs, times = c(77,7)),
+                 rep(lvs, times = c(1,71))),               
+               levels = rev(lvs))
+otab<-table(y_pred, actualpre)
+
+# str(y_pred)
+# str(actualpre)
+caret::confusionMatrix(otab)
+result<- confusionMatrix(y_pred,actualpre)
+result
+precision<- result$byClass['Pos Pred Value']
+precision
+recall<- result$byClass['Sensitivity']
+recall
+
+
+```
+
+
+```{r}
+#Neural network 
+library(readr)
+library(corrplot)
+#install.packages("caret")
+library(caret)
+#install.packages("e1071")
+library(e1071)
+library(data.table)
+str(smallmol_mx)
+smallmol_mx$xLogP
+```
+
+```{r}
+str(smallmol_mx$xLogP)
+# Convert features to numeric 
+ smallmol_mx
+ smallmol_mx[1:15]<- lapply(smallmol_mx, function(x) {
+  if(!is.numeric(x)|is.integer(x)) as.numeric(as.character(x)) else x
+ })
+
+ str(smallmol_mx)
+# custom normalization function
+normalize <- function(x) { 
+  return((x - min(x)) / (max(x) - min(x)))
+}
+
+str(smallmol_mx$xLogP)
+# apply normalization to entire data frame (you may also try to used un-normalised data to see how the results look like)
+smallmol_mx_norm <- as.data.frame(lapply(smallmol_mx, normalize))
+
+# confirm that the range is now between zero and one
+summary(smallmol_mx_norm$xLogP)
+table(smallmol_mx_norm$xLogP)
+```
+
+```{r}
+# compared to the original minimum and maximum
+summary(smallmol_mx$xLogP)
+dim(smallmol_mx)
+
+table(smallmol_mx_norm$xLogP)
+smallmol_mx_norm$xLogP<-sample(smallmol_mx_norm$xLogP, replace=FALSE)
+# create training and test data (you may wish to use k-fold cross validation to get a validated result)
+smallmol_mx_train <- smallmol_mx_norm[1:386, ]
+smallmol_mx_test <- smallmol_mx_norm[387:772, ]
+smallmol_mx_test$xLogP
+
+table(smallmol_mx_train$xLogP)
+table(smallmol_mx_test$xLogP)
+
+```
+
+```{r}
+## Step 3: Training a model on the data ----
+# train the neuralnet model
+library(neuralnet)
+# simple ANN with only a single hidden neuron
+set.seed(12345) # to guarantee repeatable results
+smallmol_mx_model<- neuralnet(xLogP ~ ., data = smallmol_mx_train)
+# plot the network
+plot(smallmol_mx_model)
+
+#  Evaluating model performance
+model_results<-neuralnet::compute(smallmol_mx_model,smallmol_mx_test[1:14])
+predicted_strength<- model_results$net.result
+corDX<-cor(predicted_strength,smallmol_mx_test$xLogP)
+corDX
+results<- data.frame(actual= smallmol_mx_test$xLogP,prediction = predicted_strength)
+roundedresults<-sapply(results,round,digits=0)
+results
+roundedresults<-sapply(results,round,digits=0)
+roundedresultsdf=data.frame(roundedresults)
+attach(roundedresultsdf)
+
+table(actual,prediction)
+
+length(actual)
+length(prediction)
+
+str(actual)
+str(prediction)
+
+prediction<-as.factor(prediction)
+prediction<- ordered(prediction, levels = c("1", "0"))
+str(prediction)
+
+table(smallmol_mx_test$xLogP)
+table(actual,prediction)
+
+lvs <- c("0", "1")
+actual<- factor(rep(lvs, times = c(198,188)),
+                levels = rev(lvs))
+prediction <- factor(
+               c(
+                 rep(lvs, times = c(142,120)),
+                 rep(lvs, times = c(61, 63))),
+               levels = rev(lvs))
+xtab <- table(prediction, actual)
+#install.packages("caret")
+library(caret)
+
+caret::confusionMatrix(xtab)
+
+output1<- confusionMatrix(prediction, actual)
+output1
+precision <-output1$byClass['Pos Pred Value']
+precision
+recall <- output1$byClass['Sensitivity']
+recall
+```
+
+```{r}
+set.seed(12345) # to guarantee repeatable results
+smallmol_mx_modela <- neuralnet(xLogP ~ ., data = smallmol_mx_train, hidden = 2)
+# plot the network
+plot(smallmol_mx_modela)
+
+# evaluate the results as we did before
+model_resultsa<- neuralnet::compute(smallmol_mx_modela,smallmol_mx_test[1:14])
+predicted_strength2 <- model_resultsa$net.result
+corDX<-cor(predicted_strength2, smallmol_mx_test$xLogP)
+corDX
+
+results2 <- data.frame(actualn = smallmol_mx_test$xLogP, predictionn = predicted_strength)
+roundedresults2<-sapply(results2,round,digits=0)
+results2
+roundedresults2<-sapply(results2,round,digits=0)
+roundedresultsdf2=data.frame(roundedresults2)
+attach(roundedresultsdf2)
+
+table(actualn, predictionn)
+
+length(smallmol_mx_test$xLogP)
+length(predicted_strength2)
+
+str(actualn)
+str(predictionn)
+
+actualn<-as.factor(actualn)
+actualn<- ordered(prediction, levels = c("1", "0"))
+predictionn<-as.factor(predictionn)
+predictionn<- ordered(predictionn, levels = c("1", "0"))
+table(actualn, predictionn)
+lvs <- c("0", "1")
+ actualn <- factor(rep(lvs, times = c(198,188)),
+                levels = rev(lvs))
+predictionn <- factor(
+               c(
+                 rep(lvs, times = c(188,74)),
+                 rep(lvs, times = c(95, 29))),
+               levels = rev(lvs))
+xtab <- table(predictionn, actualn)
+#install.packages("caret")
+library(caret)
+
+caret::confusionMatrix(xtab)
+
+output2 <- confusionMatrix(predictionn, actualn)
+output2
+precision2 <- output2$byClass['Pos Pred Value']
+precision2
+recall2 <- output2$byClass['Sensitivity']
+recall2
+
+```
+
+
+```{r}
+set.seed(12345) # to guarantee repeatable results
+smallmol_mx_mod <- neuralnet(xLogP ~ ., data = smallmol_mx_train, hidden =c(2,2))
+# plot the network
+plot(smallmol_mx_mod)
+```
+
+```{r}
+# evaluate the results as we did before
+library(neuralnet)
+model_results3<- neuralnet::compute(smallmol_mx_mod,smallmol_mx_test[1:14])
+predicted<- model_results3$net.result
+correla<-cor(predicted, smallmol_mx_test$xLogP)
+
+correla
+results3 <- data.frame(actual3= smallmol_mx_test $xLogP, prediction3= predicted)
+roundedresults3<-sapply(results3,round,digits=0)
+results3
+roundedresults3<-sapply(results3,round,digits=0)
+roundedresultsdf3=data.frame(roundedresults3)
+attach(roundedresultsdf3)
+
+
+table(actual3, prediction3)
+
+
+
+actual3<-as.factor(actual3)
+actualn<- ordered(prediction3, levels = c("1", "0"))
+prediction3<-as.factor(prediction3)
+prediction3<- ordered(prediction3, levels = c("1", "0"))
+table(actual3, prediction3)
+lvs <- c("0", "1")
+ actual3<- factor(rep(lvs, times = c(198,188)),
+                levels = rev(lvs))
+prediction3 <- factor(
+               c(
+                 rep(lvs, times = c(57,62)),
+                 rep(lvs, times = c(126, 141))),
+               levels = rev(lvs))
+xtab <- table(prediction3, actual3)
+#install.packages("caret")
+library(caret)
+
+caret::confusionMatrix(xtab)
+
+output3 <- confusionMatrix(prediction3, actual3)
+output3
+precision3 <- output3$byClass['Pos Pred Value']
+precision3
+recall3<- output3$byClass['Sensitivity']
+recall3
+```
+
+```{r}
+#Model deplopment # Since Random forest model acheived the highest accuracy ,. in this study random forest model rf  is deployed by export.
+
+nrow(getTree(rf, k = 1, labelVar = FALSE))
+
+getTree(rf, k = 1, labelVar = FALSE) %>%
+  head(14)
+
+getTree(rf, k = 1, labelVar = TRUE) %>%
+  head(14)
+
+extract_trees <- function(rf) {
+  ei <- function(i) {
+    ti <- getTree(rf, k = i, labelVar = TRUE)
+    ti$nodeid <- 1:dim(ti)[[1]]
+    ti$treeid <- i
+    ti
+  }
+  nTrees <- rf$ntree
+  do.call("rbind", sapply(1:nTrees, ei, simplify = FALSE))
+}
+ extract_trees(rf)
+#  write_tsv is tidyverse, ergo no row numbers, however the nodeid variable covers this
+readr::write_tsv(extract_trees(rf),
+            path = "C:/Users/aoogb/Desktop/rfdeployedmodel.txt")  
+
+
+library(jsonlite)
+x <- extract_trees(rf)
+y <- toJSON(unname(split(x, 1:nrow(x))))
+plot(x)
+```
